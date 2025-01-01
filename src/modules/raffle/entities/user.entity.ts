@@ -29,7 +29,7 @@ export class User {
   @OneToMany(() => Ticket, (ticket) => ticket.buyer)
   tickets: Ticket[];
 
-  @OneToMany(() => Prize, (prize) => prize.winners)
+  @OneToMany(() => Prize, (prize) => prize.winner)
   prizes: Prize[];
 
   @CreateDateColumn()

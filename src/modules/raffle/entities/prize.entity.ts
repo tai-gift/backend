@@ -15,7 +15,15 @@ export class Prize {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column('decimal', {
+    precision: 72,
+    scale: 0,
+    default: 0,
+    transformer: {
+      to: (value: bigint) => value?.toString(),
+      from: (value: string) => BigInt(value),
+    },
+  })
   amount: bigint;
 
   @ManyToOne(() => Raffle, (raffle) => raffle.prizes)

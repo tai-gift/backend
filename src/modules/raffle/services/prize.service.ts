@@ -38,7 +38,7 @@ export class PrizeService {
           user.address?.toLowerCase() === param.winners[index]?.toLowerCase(),
       );
       return this.prizeRepository.create({
-        amount: prize,
+        amount: BigInt(prize),
         raffle,
         winner: user,
       });

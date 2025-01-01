@@ -1,16 +1,10 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { Raffle } from '../entities/raffle.entity';
 import { RAFFLE_CONFIG } from '../raffle.constant';
-import { RaffleFactoryContract } from '../contracts/factory.contract';
 import { RaffleType } from 'src/modules/raffle/interfaces/raffle-type.enum';
 import { RaffleStatus } from 'src/modules/raffle/interfaces/raffle-status.enum';
 import { RaffleWeb3Service } from 'src/modules/raffle/services/raffle-web3.service';
@@ -26,7 +20,6 @@ export class RaffleService implements OnModuleInit {
     private raffleRepo: Repository<Raffle>,
     @InjectQueue('raffle') private raffleQueue: Queue,
     private web3Service: RaffleWeb3Service,
-    private factory: RaffleFactoryContract,
     private emitter: EventEmitter2,
   ) {}
 
@@ -103,7 +96,7 @@ export class RaffleService implements OnModuleInit {
       const raffle = await this.raffleRepo.findOneOrFail({
         where: { id: raffleId },
       });
-      return this.factory.getWinners(raffle.address);
+      return this.web3Service.getWinners(raffle.address);
     } catch (error) {
       this.logger.error(`Failed to get winners for raffle ${raffleId}:`, error);
       throw error;

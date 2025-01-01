@@ -1,0 +1,9 @@
+services:
+  loan_backend:
+    container_name: donation_backend
+    image: iemarjay/donation-backend
+    restart: unless-stopped
+    ports:
+      - "3007:5000"
+    env_file:
+      - .env.backend

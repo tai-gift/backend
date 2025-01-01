@@ -4,7 +4,7 @@ import { BaseWallet, ethers } from 'ethers';
 import * as RaffleFactory from 'src/modules/raffle/contracts/abi/factory.json';
 import * as Raffle from 'src/modules/raffle/contracts/abi/Raffle.json';
 import * as ERC20 from 'src/modules/raffle/contracts/abi/ERC20.json';
-import * as Wallets from 'src/modules/raffle/contracts/Wallets.json';
+import * as Wallets from 'src/modules/raffle/contracts/wallets.json';
 
 interface WinnerSelection {
   indices: bigint[];
@@ -294,5 +294,12 @@ export class RaffleWeb3Service {
       console.error(`Failed to buy default ticket for ${data.address}:`, error);
       throw error;
     }
+  }
+
+  getWinners(address: string) {
+    const raffle = new ethers.Contract(address, Raffle.abi, this.signer);
+    const winners = raffle.getWinners();
+
+    return { winners: winners[0], prizes: winners[1] };
   }
 }
