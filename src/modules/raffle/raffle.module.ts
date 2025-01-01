@@ -3,16 +3,21 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
 import { Raffle } from './entities/raffle.entity';
-import { RaffleService } from './services/raffle.service';
+import { RaffleWeb3Service } from 'src/modules/raffle/services/raffle-web3.service';
 import { SchedulerService } from './services/scheduler.service';
 import { RaffleProcessor } from './processors/raffle.processor';
 // import { RaffleController } from './controllers/raffle.controller';
 import { RaffleFactoryContract } from './contracts/factory.contract';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { RaffleService } from 'src/modules/raffle/services/raffle.service';
+import { WebhookController } from 'src/modules/raffle/controllers/webhook.controller';
+import { TicketService } from 'src/modules/raffle/services/ticket.service';
+import { Ticket } from 'src/modules/raffle/entities/ticket.entity';
+import { User } from 'src/modules/raffle/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Raffle]),
+    TypeOrmModule.forFeature([Raffle, Ticket, User]),
     BullModule.registerQueue({
       name: 'raffle',
       defaultJobOptions: {
@@ -29,6 +34,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   ],
   providers: [
     RaffleService,
+    RaffleWeb3Service,
+    TicketService,
     SchedulerService,
     RaffleProcessor,
     RaffleFactoryContract,
@@ -44,7 +51,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       },
     },
   ],
-  // controllers: [RaffleController],
-  exports: [RaffleService],
+  controllers: [WebhookController],
+  exports: [RaffleWeb3Service],
 })
 export class RaffleModule {}

@@ -3,16 +3,20 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { RaffleType } from 'src/modules/raffle/interfaces/raffle-type.enum';
 import { RaffleStatus } from 'src/modules/raffle/interfaces/raffle-status.enum';
+import { Ticket } from 'src/modules/raffle/entities/ticket.entity';
+import { Prize } from 'src/modules/raffle/entities/prize.entity';
 
 @Entity('raffles')
 export class Raffle {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({
     type: 'enum',
@@ -21,8 +25,8 @@ export class Raffle {
   @Index()
   type: RaffleType;
 
-  @Column({ length: 42 })
-  contractAddress: string;
+  @Column({ length: 42, unique: true })
+  address: string;
 
   @Column({
     type: 'enum',
@@ -104,4 +108,18 @@ export class Raffle {
 
   @Column({ nullable: true })
   activatedAt: Date;
+
+  @Column({ nullable: true })
+  @Exclude()
+  randomValue: string;
+
+  @Column({ nullable: true })
+  @Exclude()
+  seed: string;
+
+  @OneToMany(() => Ticket, (ticket) => ticket.raffle)
+  tickets: Ticket[];
+
+  @OneToMany(() => Prize, (prize) => prize.raffle)
+  prizes: Prize[];
 }

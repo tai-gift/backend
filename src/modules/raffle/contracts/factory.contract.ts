@@ -3,14 +3,28 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ContractTransactionResponse, ethers } from 'ethers';
 import { abi as RaffleFactoryABI } from './abi/factory.json';
 import { abi as RaffleABI } from './abi/raffle.json';
-import { parseLog } from 'src/raffle/helpers/ethers';
-import { RaffleStatus } from 'src/raffle/contracts/raffle.contract';
+import { RaffleStatus } from 'src/modules/raffle/interfaces/raffle-status.enum';
+import { parseEvent } from 'src/modules/raffle/helpers/ethers';
 
 interface Web3Config {
   provider: string;
   factoryAddress: string;
   privateKey: string;
 }
+
+export type RaffleInfo = {
+  needsFallback: boolean;
+  timeLeft: bigint;
+  status: RaffleStatus;
+  currentPrizePool: bigint;
+  participants: bigint;
+};
+
+export type RaffleWinners = {
+  winners: string[];
+  runnersUp: string[];
+  prizes: bigint[];
+};
 
 @Injectable()
 export class RaffleFactoryContract {
@@ -44,16 +58,8 @@ export class RaffleFactoryContract {
     const receipt = await tx.wait();
 
     // Get deployment info from events
-    const log = parseLog(receipt, 'RaffleDeployed', this.interface);
-    if (!log) throw new Error('Raffle deployment failed');
-
-    const parsedEvent = this.interface.parseLog({
-      topics: log.topics,
-      data: log.data,
-    });
-
-    const args = parsedEvent?.args;
-    return args[0];
+    const event = parseEvent(receipt, 'RaffleDeployed', this.interface);
+    return event?.args?.[0];
   }
 
   async activateRaffle(address: string): Promise<void> {
@@ -86,14 +92,11 @@ export class RaffleFactoryContract {
     await tx.wait();
   }
 
-  async getWinners(address: string): Promise<{
-    winners: string[];
-    runnersUp: string[];
-  }> {
+  async getWinners(address: string): Promise<RaffleWinners> {
     const raffle = this.raffleContract(address);
     const winners = await raffle.getWinners();
     const runnersUp = await raffle.getRunnersUp();
-    return { winners, runnersUp, prizes };
+    return { winners: winners[0], runnersUp, prizes: winners[1] };
   }
 
   private raffleContract(address: string) {
@@ -104,7 +107,7 @@ export class RaffleFactoryContract {
     ) as unknown as RaffleInterface;
   }
 
-  async getRaffleInfo(address: string) {
+  async getRaffleInfo(address: string): Promise<RaffleInfo> {
     const raffle = this.raffleContract(address);
     const [status, currentPrizePool, timeLeft, participants, needsFallback] =
       await raffle.getRaffleInfo();
@@ -135,17 +138,17 @@ export interface RaffleFactoryInterface {
 }
 
 export interface RaffleInterface {
-  getRaffleInfo(): Promise<RaffleInfo>;
+  getRaffleInfo(): Promise<_RaffleInfo>;
   endRaffle(): Promise<ContractTransactionResponse>;
   submitCommitment(commitHash: string): Promise<ContractTransactionResponse>;
   revealAndDraw(secret: Uint8Array): Promise<ContractTransactionResponse>;
-  getWinners(): Promise<string[]>;
+  getWinners(): Promise<[string[], bigint[]]>;
   getRunnersUp(): Promise<string[]>;
   pause(): Promise<ContractTransactionResponse>;
   unpause(): Promise<ContractTransactionResponse>;
 }
 
-export type RaffleInfo = [
+export type _RaffleInfo = [
   (
     | 'Active'
     | 'Ready to End'

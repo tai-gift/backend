@@ -10,6 +10,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { join } from 'path';
 import { SharedModule } from 'src/shared/shared.module';
 import { BullModule } from '@nestjs/bull';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 dotenv.config();
 @Module({
@@ -31,6 +32,7 @@ dotenv.config();
         password: env.REDIS_PASSWORD,
       },
     }),
+    EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     RaffleModule,
     SharedModule,

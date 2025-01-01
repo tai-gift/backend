@@ -1,11 +1,13 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Raffle } from '../entities/raffle.entity';
-import { RaffleService } from './raffle.service';
-import { RaffleType } from 'src/modules/raffle/interfaces/raffle-type.enum';
+import { RaffleService } from 'src/modules/raffle/services/raffle.service';
 import { RaffleStatus } from 'src/modules/raffle/interfaces/raffle-status.enum';
+import { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bull';
+import { RaffleCreatedEvent } from 'src/modules/raffle/events/raffle-created.event';
+import { OnEvent } from '@nestjs/event-emitter';
 
 @Injectable()
 export class SchedulerService implements OnModuleInit {
@@ -14,58 +16,46 @@ export class SchedulerService implements OnModuleInit {
   constructor(
     @InjectRepository(Raffle)
     private raffleRepo: Repository<Raffle>,
-    private raffleService: RaffleService,
+    @InjectQueue('raffle') private raffleQueue: Queue,
   ) {}
 
   async onModuleInit() {
-    this.logger.log('Initializing raffle system...');
-    const types = [
-      RaffleType.DAILY,
-      RaffleType.WEEKLY,
-      RaffleType.MONTHLY,
-    ] as const;
+    this.logger.log('Initializing scheduler service...');
+    const raffles = await this.raffleRepo.findBy({
+      status: RaffleStatus.ACTIVE,
+    });
 
-    for (const type of types) {
-      const exists = await this.raffleRepo.existsBy([
-        { type, status: RaffleStatus.ACTIVE },
-        { type, status: RaffleStatus.PENDING },
-      ]);
-
-      if (exists) return;
-
-      this.logger.log(`Creating initial ${type} raffle`);
-      await this.raffleService.createRaffle(type);
+    for (const raffle of raffles) {
+      await this.scheduleRaffleEnd(raffle);
     }
   }
 
-  @Cron('0 */12 * * *')
-  async checkDailyRaffle() {
-    await this.checkAndCreateRaffle(RaffleType.DAILY);
+  @OnEvent(RaffleCreatedEvent.name)
+  async handleRaffleCreated(event: RaffleCreatedEvent) {
+    const raffle = await this.raffleRepo.findOneBy({
+      address: event.raffle.address,
+    });
+    await this.scheduleRaffleEnd(raffle);
   }
 
-  @Cron('0 0 * * *')
-  async checkWeeklyRaffle() {
-    await this.checkAndCreateRaffle(RaffleType.WEEKLY);
-  }
+  private async scheduleRaffleEnd(raffle: Raffle) {
+    const endTime = raffle.endTime.getTime();
+    const delay = Math.max(0, endTime - Date.now());
 
-  @Cron('0 0 * * *')
-  async checkMonthlyRaffle() {
-    await this.checkAndCreateRaffle(RaffleType.MONTHLY);
-  }
+    this.logger.log(`Scheduling raffle ${raffle.id} to end in ${delay}ms`);
+    await this.raffleQueue.add(
+      'end-raffle',
+      { id: raffle.id, address: raffle.address },
+      {
+        delay,
+        removeOnComplete: true,
+        backoff: {
+          type: 'exponential',
+          delay: 60000,
+        },
+      },
+    );
 
-  private async checkAndCreateRaffle(type: RaffleType) {
-    try {
-      const pendingExists = await this.raffleRepo.existsBy({
-        type,
-        status: RaffleStatus.PENDING,
-      });
-
-      if (!pendingExists) {
-        this.logger.log(`Creating new ${type} raffle`);
-        await this.raffleService.createRaffle(type);
-      }
-    } catch (error) {
-      this.logger.error(`Failed to check/create ${type} raffle:`, error);
-    }
+    this.logger.log(`Scheduled end for raffle ${raffle.id} in ${delay}ms`);
   }
 }
