@@ -5,6 +5,7 @@ import { In, Repository } from 'typeorm';
 import { User } from 'src/modules/raffle/entities/user.entity';
 import { Raffle } from 'src/modules/raffle/entities/raffle.entity';
 import { instanceToPlain } from 'class-transformer';
+import { RaffleStatus } from 'src/modules/raffle/interfaces/raffle-status.enum';
 
 @Injectable()
 export class PrizeService {
@@ -31,6 +32,9 @@ export class PrizeService {
     const users = await this.userRepository.findBy({
       address: In(param.winners),
     });
+
+    raffle.status = RaffleStatus.ENDED;
+    await this.raffleRepository.save(raffle);
 
     const prizes = param.prizes.map((prize, index) => {
       const user = users.find(
